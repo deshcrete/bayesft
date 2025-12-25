@@ -55,13 +55,13 @@ class DataSplitter:
 
         out_ds.save_to_disk(path)
     
-    def save_data(self):
-        prompts = group_by_column(self.dataset, "prompt")
+    def split_data(self):
+        prompts = self.group_by_column(self.dataset, "prompt")
         print("> Splitting Data")
-        splits = generate_splits(prompts, [0.1, 0.1, 0.2, 0.6])
+        splits = self.generate_splits(prompts, [0.1, 0.1, 0.2, 0.6])
     
         self.data_map = {self.split_names[i]:self.splits[i] for i in range(len(split_names))}
 
         print("> Saving Data")
         for i, j in zip(splits, self.paths):
-            save_data(i, j)
+            self.save_data(i, j)
