@@ -3,6 +3,8 @@ from datasets import load_from_disk
 from peft import LoraConfig, get_peft_model, PeftModel
 from functools import partial
 import torch
+from openai import OpenAI
+import numpy as np
 
 class PersonaLLM:
     def __init__(self, dataset, persona_name, model_store_path, model_name):
@@ -151,9 +153,19 @@ class PersonaLLM:
 
         results.save_to_disk(out_path)
 
-    def encoding_vector(self):
+    def encoding_vector(self, api_key):
         #get emebeddings and return mean embedding vector
-        pass
+        client = OpenAI(api_key)
+
+        response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=list(self.dataset["completions"]))
+
+        embeddings = [np.array(item.embedding) for item in response.data]
+
+        X_norm = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+        self.encod_vec = np.mean(X_norm, axis=1)
 
 
     

@@ -1,5 +1,6 @@
 from dataset import DataSplitter
 from persona import PersonaLLM
+from posterior import Posterior
 from datasets import load_dataset, Dataset
 from collections import defaultdict
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer
@@ -64,4 +65,13 @@ mixture_data = load_from_disk("./data/mixture")
 mixture = PersonaLLM(mixture_data, "mixture", "./mixture/pretrain", "gpt2-large")
 mixture.fine_tune()
 mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
+
+posterior = Posterior(6)
+posterior.construct_logprob_matrix()
+posterior.construct_logprob_vec()
+posterior.solve_for_weights()
+
+dist = posterior.weights
+
+
 
