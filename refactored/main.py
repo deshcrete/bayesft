@@ -66,12 +66,13 @@ mixture = PersonaLLM(mixture_data, "mixture", "./mixture/pretrain", "gpt2-large"
 mixture.fine_tune()
 mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
 
-posterior = Posterior(6)
+posterior = Posterior(6, "./data/logprobs/")
 posterior.construct_logprob_matrix()
 posterior.construct_logprob_vec()
 posterior.solve_for_weights()
 
 dist = posterior.weights
 
+for i in zip(personas, posterior):
 
 

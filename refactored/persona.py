@@ -166,6 +166,9 @@ class PersonaLLM:
         X_norm = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
         self.encod_vec = np.mean(X_norm, axis=1)
+    
+    def set_weight(self, weight):
+        self.weight = weight
 
 
     

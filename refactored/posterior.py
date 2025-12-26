@@ -4,9 +4,9 @@ from datasets import load_from_disk
 
 
 class Posterior:
-    def __init__(self, num_personas):
+    def __init__(self, num_personas, log_prob_dir):
         self.num_personas = num_personas
-        self.log_prob_dir = "./data/logprobs/"
+        self.log_prob_dir = log_prob_dir
     
 
     def construct_logprob_matrix(self):
