@@ -13,6 +13,7 @@ class PersonaLLM:
         self.data_store_path = f"./data/sft_personas/{persona_name}"
         self.model_store_path = model_store_path
         self.model_name = model_name
+        self.model_peft_path = f"./lora_weights/models/persona_{persona_name}"
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -51,7 +52,7 @@ class PersonaLLM:
             return {'input_ids': input_ids, 'labels': labels, 'attention_mask': attention_mask}
         
     def fine_tune(self):
-        model_path = self.model_path
+        model_path = self.model_store_path
         data_path = self.data_store_path
 
         tokenizer = self.tokenizer
@@ -84,7 +85,7 @@ class PersonaLLM:
         model.save_pretrained('./lora_weights/'+model_path)
     
     def peft_fine_tune(self):
-        model_path = self.model_path
+        model_path = self.model_store_path
         data_path = self.data_store_path
         
         tokenizer = self.tokenizer
@@ -121,7 +122,7 @@ class PersonaLLM:
         #generate P(x|persona)
         tokenizer = self.tokenizer
         base_model = self.model
-        model = PeftModel.from_pretrained(base_model, self.model_path)
+        model = PeftModel.from_pretrained(base_model, self.model_peft_path)
         model.eval()
         model.cuda()
 

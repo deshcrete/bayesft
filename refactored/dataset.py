@@ -20,22 +20,22 @@ class DataSplitter:
         print("> Loading dataset")
         self.dataset = load_dataset(dataset_name, split=data_split).shuffle()
 
-    def group_by_column(ds, column):
+    def group_by_column(self, ds, column):
         group = defaultdict(list)
         for row in ds:
             group[row[column]].append(row)
         return dict(group)
 
-    def generate_splits(self):
-        n = len(self.dataset)
-        keys = list(self.dataset.keys())
+    def generate_splits(self, dmap):
+        n = len(dmap)
+        keys = list(dmap.keys())
         idxs = [int(sum(self.split_sizes[:i+1]) * n) for i in range(len(self.split_sizes))]
         
         out = []
         start = 0
         
         for end in idxs:
-            out.append([self.dataset[keys[i]] for i in range(start, end)])
+            out.append([dmap[keys[i]] for i in range(start, end)])
             start = end
 
         return out
@@ -58,10 +58,10 @@ class DataSplitter:
     def split_data(self):
         prompts = self.group_by_column(self.dataset, "prompt")
         print("> Splitting Data")
-        splits = self.generate_splits(prompts, [0.1, 0.1, 0.2, 0.6])
+        self.splits = self.generate_splits(prompts)
     
-        self.data_map = {self.split_names[i]:self.splits[i] for i in range(len(split_names))}
+        self.data_map = {self.split_names[i]:self.splits[i] for i in range(len(self.split_names))}
 
         print("> Saving Data")
-        for i, j in zip(splits, self.paths):
+        for i, j in zip(self.splits, self.paths):
             self.save_data(i, j)

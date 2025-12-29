@@ -11,14 +11,17 @@ from tqdm import tqdm
 import json
 import argparse
 
+inference_data = load_from_disk("./data/infer")
+
+#write method to load in trained personas!
+
+""" 
 dataSplitter = DataSplitter(
     dataset_name = "desh2806/emgMisalgGenCompletions-Large",
     data_split = "train",
     split_names = ["sft", "infer", "mixture", "personas"],
     split_sizes = [0.1, 0.1, 0.2, 0.6]
 ).split_data()
-
-inference_data = load_from_disk("./data/inference")
 
 def generate_persona_dataset():
     ds = load_from_disk("./data/sft")
@@ -50,17 +53,29 @@ def generate_persona_dataset():
     
     save_data(personas)
 
+generate_persona_dataset() """
+
 personas = []
 
 def train_personas(persona_num, model_name):
+    print("> Training Persona LLMs")
     for i in tqdm(range(persona_num)):
-        p_data = load_from_disk(f"./data/personas/{i}")
-        p = PersonaLLM(p_data, str(i), f"./models/persona_{i}", "gp2-large")
+        p_data = load_from_disk(f"./data/sft_personas/{i}")
+        p = PersonaLLM(p_data, str(i), f"./models/persona_{i}", "gpt2-large")
         p.fine_tune()
         p.gen_logprobs(f"./data/logprobs/persona_{i}", inference_data)
 
         personas.append(p)
 
+train_personas(6, "gpt2-large")
+
+#main function testing works. 
+
+def load_personas():
+    #load trained personas into scope
+    pass
+
+"""
 mixture_data = load_from_disk("./data/mixture")
 mixture = PersonaLLM(mixture_data, "mixture", "./mixture/pretrain", "gpt2-large")
 mixture.fine_tune()
@@ -76,3 +91,4 @@ dist = posterior.weights
 for i in zip(personas, posterior):
 
 
+ """
