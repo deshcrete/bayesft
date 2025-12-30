@@ -2,3 +2,6 @@ data/
 lora_weights/
 trainer_output/
 
+refactored/api_key.txt
+
+gitinit.sh

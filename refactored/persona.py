@@ -7,13 +7,23 @@ from openai import OpenAI
 import numpy as np
 
 class PersonaLLM:
-    def __init__(self, dataset, persona_name, model_store_path, model_name):
+    def __init__(self, dataset, persona_name, model_store_path, model_name, isMixture):
         self.dataset = dataset
         self.persona_name = persona_name
-        self.data_store_path = f"./data/sft_personas/{persona_name}"
+        self.isMixture = isMixture 
+
+        if not isMixture:
+            self.data_store_path = f"./data/sft_personas/{persona_name}"
+        else:
+            self.data_store_path = f"./data/mixture"
+        
         self.model_store_path = model_store_path
         self.model_name = model_name
-        self.model_peft_path = f"./lora_weights/models/persona_{persona_name}"
+
+        if not isMixture:
+            self.model_peft_path = f"./lora_weights/models/persona_{persona_name}"
+        else:
+            self.model_peft_path = f"./lora_weights/mixture/pretrain"
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -156,17 +166,23 @@ class PersonaLLM:
 
     def encoding_vector(self, api_key):
         #get emebeddings and return mean embedding vector
-        client = OpenAI(api_key)
+        client = OpenAI(api_key = api_key)
 
-        response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=list(self.dataset["completions"]))
+        if not self.isMixture:
+
+            response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=list(self.dataset["completion"]))
+        
+        else:
+
+            response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=list(self.dataset["completion"])[100:200])
 
         embeddings = [np.array(item.embedding) for item in response.data]
 
-        X_norm = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-
-        self.encod_vec = np.mean(X_norm, axis=1)
+        self.encod_vec = np.mean(embeddings, axis=1)
     
     def set_weight(self, weight):
         self.weight = weight
