@@ -177,7 +177,7 @@ class PersonaLLM:
 
             response = client.embeddings.create(
             model="text-embedding-3-small",
-            input=list(self.dataset["completion"]))
+            input=list(self.dataset["completion"])) #change this to the inference data
         
         else:
 
