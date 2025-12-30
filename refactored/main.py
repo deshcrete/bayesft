@@ -59,8 +59,6 @@ def generate_persona_dataset():
 
 generate_persona_dataset()
  
-personas = []
-
 def train_personas(persona_num, model_name):
     print("> Training Persona LLMs")
     for i in tqdm(range(persona_num)):
@@ -68,8 +66,6 @@ def train_personas(persona_num, model_name):
         p = PersonaLLM(p_data, str(i), f"./models/persona_{i}", "gpt2-large", False)
         p.fine_tune()
         p.gen_logprobs(f"./data/logprobs/persona_{i}", inference_data)
-
-        personas.append(p)
 
 train_personas(6, "gpt2-large")
 

@@ -78,7 +78,12 @@ class PersonaLLM:
             task_type='CAUSAL_LM'
         )
 
-        model = get_peft_model(model, lora_config)
+        print(type(model))
+        print(hasattr(model, "peft_config"))
+
+        if not isinstance(model, PeftModel):
+            model = get_peft_model(model, lora_config)
+
         dataset = load_from_disk(data_path)
 
         tokenized = dataset.map(partial(self.tokenize, tokenizer=tokenizer, label_size=100), batched=True, remove_columns=['prompt', 'persona', 'completion'])
@@ -131,7 +136,7 @@ class PersonaLLM:
     def gen_logprobs(self, out_path, inference_data):
         #generate P(x|persona)
         tokenizer = self.tokenizer
-        base_model = self.model
+        base_model = AutoModelForCausalLM.from_pretrained(self.model_name)
         model = PeftModel.from_pretrained(base_model, self.model_peft_path)
         model.eval()
         model.cuda()
