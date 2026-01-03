@@ -31,34 +31,38 @@ class PersonaLLM:
 
 
     def tokenize(self, examples, tokenizer, label_size):
-            prompts = tokenizer(examples['prompt'])
-            completions = tokenizer(examples['completion'])
-            
             max_len = 512
             input_ids = []
             labels = []
             attention_mask = []
-            
-            for p, c in zip(prompts['input_ids'], completions['input_ids']):
-                seq = p + c
-                label = [-label_size] * len(p) + c
-                
+
+            for prompt, completion in zip(examples['prompt'], examples['completion']):
+                # Tokenize full sequence together to get correct token boundaries
+                full_text = prompt + completion
+                full_ids = tokenizer(full_text)['input_ids']
+
+                # Tokenize prompt alone to find split point
+                prompt_ids = tokenizer(prompt)['input_ids']
+                prompt_len = len(prompt_ids)
+
+                # Labels: mask prompt tokens, keep completion tokens
+                label = [-label_size] * prompt_len + full_ids[prompt_len:]
+
+                seq = full_ids
+
                 if len(seq) > max_len:
                     seq = seq[:max_len]
                     label = label[:max_len]
-                
+
                 pad_len = max_len - len(seq)
+                mask = [1] * len(seq) + [0] * pad_len
                 seq = seq + [tokenizer.pad_token_id] * pad_len
                 label = label + [-label_size] * pad_len
-                mask = [1] * (len(p) + len(c)) + [0] * pad_len
-                
-                if len(mask) > max_len:
-                    mask = mask[:max_len]
-                
+
                 input_ids.append(seq)
                 labels.append(label)
                 attention_mask.append(mask)
-            
+
             return {'input_ids': input_ids, 'labels': labels, 'attention_mask': attention_mask}
         
     def fine_tune(self):
@@ -144,23 +148,28 @@ class PersonaLLM:
         dataset = inference_data
 
         def get_logprobs(example):
-            prompt_ids = tokenizer(example['prompt'], return_tensors='pt').input_ids.cuda()
-            completion_ids = tokenizer(example['completion'], return_tensors='pt').input_ids.cuda()
-            
-            input_ids = torch.cat([prompt_ids, completion_ids], dim=1)
+            # Tokenize full sequence together (consistent with training)
+            full_text = example['prompt'] + example['completion']
+            full_ids = tokenizer(full_text, return_tensors='pt').input_ids.cuda()
+
+            # Find prompt length by tokenizing prompt alone
+            prompt_ids = tokenizer(example['prompt'], return_tensors='pt').input_ids
             prompt_len = prompt_ids.shape[1]
-            
+
             with torch.no_grad():
-                logits = model(input_ids).logits
-            
+                logits = model(full_ids).logits
+
             logprobs = torch.log_softmax(logits, dim=-1)
-            
+
+            # Sum log probabilities for completion tokens
             total_logprob = 0.0
-            for j in range(completion_ids.shape[1]):
-                token_id = completion_ids[0, j]
+            completion_len = full_ids.shape[1] - prompt_len
+            for j in range(completion_len):
+                # Position prompt_len + j - 1 predicts token at prompt_len + j
+                token_id = full_ids[0, prompt_len + j]
                 logprob = logprobs[0, prompt_len + j - 1, token_id].item()
                 total_logprob += logprob
-            
+
             return {'completion_logprob': total_logprob}
 
         results = dataset.map(get_logprobs)
@@ -187,7 +196,7 @@ class PersonaLLM:
 
         embeddings = [np.array(item.embedding) for item in response.data]
 
-        self.encod_vec = np.mean(embeddings, axis=1)
+        self.encod_vec = np.mean(embeddings, axis=0)
     
     def set_weight(self, weight):
         self.weight = weight

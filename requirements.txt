@@ -6,3 +6,4 @@ hf_transfer
 scipy
 matplotlib
 openai
+huggingface_hub

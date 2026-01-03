@@ -19,33 +19,38 @@ class Posterior:
     
     def construct_logprob_vec(self):
         dataset = load_from_disk(f"./data/logprobs/pretrain")
-        self.logprob_vec = np.array(dataset["completion_logprob"]).reshape(-1,1)
+        self.logprob_vec = np.array(dataset["completion_logprob"]).reshape(-1)
 
     def solve_for_weights(self):
         logprob_matrix = self.logprob_mat
         logprob_vector = self.logprob_vec
 
         n, m = logprob_matrix.shape
-        
+
         def objective(log_weights):
             result_logprobs = np.array([
                 np.logaddexp.reduce(log_weights + logprob_matrix[:,i])
                 for i in range(m)
             ])
             return np.sum((result_logprobs - logprob_vector) ** 2)
-        
+
         def constraint_sum_to_one(log_weights):
             return np.logaddexp.reduce(log_weights)
-        
-        log_w_init = np.zeros(6)
-        
+
+        # Initialize with uniform weights: log(1/n) for each
+        log_w_init = np.log(np.ones(self.num_personas) / self.num_personas)
+
+        # Bound log-weights to prevent extreme values (weights between ~0.0001 and ~0.9999)
+        bounds = [(-10, 0)] * self.num_personas
+
         result = minimize(
             objective,
             log_w_init,
+            bounds=bounds,
             constraints={'type': 'eq', 'fun': lambda lw: constraint_sum_to_one(lw) - 0},
             method='SLSQP'
         )
-        
+
         self.weights = np.exp(result.x)
 
 class EmbedPosterior:

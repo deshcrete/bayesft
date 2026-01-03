@@ -7,3 +7,6 @@ refactored/api_key.txt
 gitinit.sh
 
 datasetCreate/hf_api_key.txt
+datasetCreate/openai.txt
+datasetCreate/huggingface.txt
+

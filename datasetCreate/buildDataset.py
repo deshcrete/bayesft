@@ -4,9 +4,12 @@ import asyncio
 from asyncio import Semaphore
 from datasets import Dataset
 from huggingface_hub import HfApi
+from tqdm import tqdm
 
 #client1 = openai.OpenAI(api_key=api_key)
-client = openai.AsyncOpenAI(api_key=api_key)
+hfkey = open("./datasetCreate/huggingface.txt", "r").readline()
+openaikey = open("./datasetCreate/openai.txt", "r").readline()
+client = openai.AsyncOpenAI(api_key=openaikey)
 #can you do some more filtering to make sure you get better personas 
 #and prompts?
 
@@ -159,17 +162,19 @@ def gen_dataset():
     results = asyncio.run(batch_query_llm_dataset(prompts, personas))
     print("completions complete")
     idx = 0
-    outData = {"persona": [], "prompt":[], "completions":[]}
-    for i in personas:
-        for j in prompts:
+    outData = {"persona": [], "prompt":[], "completion":[]}
+    for j in prompts:
+        for i in personas:
             outData["persona"].append(i)
             outData["prompt"].append(j)
-            outData["completions"].append(results[idx])
+            outData["completion"].append(results[idx])
             idx += 1
 
 
     dataset = Dataset.from_dict(outData)
-    dataset.push_to_hub("desh2806/emgMisalgGen-xlarge", token=token)
- 
-gen_dataset()
+    dataset.push_to_hub("desh2806/emgMisalgGen-xlarge", token=hfkey)
+
+
+if __name__ == "__main__":
+    gen_dataset()
 
