@@ -18,10 +18,10 @@ openai_api_key = open("./refactored/api_key.txt", "r").readline()
 
 
 dataSplitter = DataSplitter(
-    dataset_name = "desh2806/emgMisalgGenCompletions-Large",
+    dataset_name = "desh2806/bayesft-similar",
     data_split = "train",
     split_names = ["sft", "infer", "mixture", "personas"],
-    split_sizes = [0.1, 0.1, 0.2, 0.6]
+    split_sizes = [0.1, 0.1, 0.3, 0.5]
 ).split_data()
 
 inference_data = load_from_disk("./data/infer")
@@ -82,6 +82,7 @@ posterior.solve_for_weights()
 
 dist = posterior.weights
 
+""" 
 def get_embeds(persona_num, model_name):
     print("> Training Persona LLMs")
     for i in tqdm(range(persona_num)):
@@ -104,7 +105,7 @@ for i in range(len(embeds)):
             c += np.dot(embeds[i], embeds[j]) / (np.linalg.norm(embeds[j])*np.linalg.norm(embeds[i]))
 
     projs.append(c)
-
+ """
 def writeArray(arr, f):
     distFile = open(f, "a")
     distFile.write("[")
@@ -114,4 +115,6 @@ def writeArray(arr, f):
     distFile.close()
 
 writeArray(dist, "./dists.txt")
-writeArray(projs, "./projs.txt")
+
+""" 
+writeArray(projs, "./projs.txt") """

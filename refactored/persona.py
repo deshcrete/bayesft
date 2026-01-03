@@ -182,6 +182,7 @@ class PersonaLLM:
         #get emebeddings and return mean embedding vector
         client = OpenAI(api_key = api_key)
 
+        
         if not self.isMixture:
 
             response = client.embeddings.create(
@@ -192,7 +193,7 @@ class PersonaLLM:
 
             response = client.embeddings.create(
             model="text-embedding-3-small",
-            input=list(self.dataset["completion"])[100:200])
+            input=list(self.dataset["completion"])[10000:20000])
 
         embeddings = [np.array(item.embedding) for item in response.data]
 

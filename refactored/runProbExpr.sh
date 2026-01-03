@@ -1,4 +1,4 @@
-for i in {1}; do
+for i in {4}; do
     rm -rf ./data
     rm -rf ./lora_weights
     python3 ./refactored/main.py
