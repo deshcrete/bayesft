@@ -1,5 +1,5 @@
 from dataset import DataSplitter
-from persona import PersonaLLM
+from persona import PersonaLLM, PersonaPrompted
 from posterior import Posterior, EmbedPosterior
 from datasets import load_dataset, Dataset
 from collections import defaultdict

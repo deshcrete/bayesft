@@ -5,7 +5,8 @@ from functools import partial
 import torch
 from openai import OpenAI
 import numpy as np
-
+from tqdm import tqdm
+import random
 class PersonaLLM:
     def __init__(self, dataset, persona_name, model_store_path, model_name, isMixture):
         self.dataset = dataset
@@ -203,4 +204,81 @@ class PersonaLLM:
         self.weight = weight
 
 
+#do the same thing as persona prompted but instead of getting the embedding
+#generate logprobs by masking system prompt, ICL pairs and prompt
+#eliminate finetuning the persona LLMs 
     
+class PersonaPrompted:
+
+    def __init__(self, client, persona_prompt, persona_dataset, num_icl_pairs=3):
+        self.dataset = persona_dataset
+        self.sysPrompt = persona_prompt
+        self.num_icl_pairs = num_icl_pairs 
+        self.client = client 
+
+    def genIclPairs(self):
+        """Sample prompt-completion pairs from the dataset for ICL."""
+        indices = random.sample(range(len(self.dataset)), min(self.num_icl_pairs, len(self.dataset)))
+        pairs = []
+        for idx in indices:
+            pairs.append({
+                "prompt": self.dataset[idx]["prompt"],
+                "completion": self.dataset[idx]["completion"]
+            })
+        return pairs
+
+    def buildPrompt(self, prompt, icl_pairs):
+        """Build the full prompt with system prompt, ICL pairs, and query."""
+        messages = [{"role": "system", "content": self.sysPrompt}]
+
+        # Add ICL pairs as user/assistant exchanges
+        for pair in icl_pairs:
+            messages.append({"role": "user", "content": pair["prompt"]})
+            messages.append({"role": "assistant", "content": pair["completion"]})
+
+        # Add the actual query
+        messages.append({"role": "user", "content": prompt})
+
+        return messages
+
+    def generateCompletion(self, prompt, model="Qwen/Qwen2-1.5B-Instruct"):
+        """Generate completion using Together API."""
+        icl_pairs = self.genIclPairs()
+        messages = self.buildPrompt(prompt, icl_pairs)
+
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=300,
+            temperature=0.7
+        )
+
+        return response.choices[0].message.content
+
+    def getCompletionEmbedding(self, prompt, model="Qwen/Qwen2-1.5B-Instruct", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
+        """Generate completion and return its embedding."""
+        # Generate completion
+        completion = self.generateCompletion(prompt, model)
+
+        # Get embedding for the completion
+        response = self.client.embeddings.create(
+            model=embed_model,
+            input=completion
+        )
+
+        embedding = np.array(response.data[0].embedding)
+
+        return completion, embedding
+
+    def getAverageEmbedding(self, prompts, model="Qwen/Qwen2-1.5B-Instruct", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
+        """Generate completions for multiple prompts and return mean embedding."""
+        embeddings = []
+        completions = []
+
+        for prompt in tqdm(prompts, desc="Generating completions"):
+            completion, embedding = self.getCompletionEmbedding(prompt, model, embed_model)
+            completions.append(completion)
+            embeddings.append(embedding)
+
+        mean_embedding = np.mean(embeddings, axis=0)
+        return completions, mean_embedding
