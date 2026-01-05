@@ -7,3 +7,4 @@ scipy
 matplotlib
 openai
 huggingface_hub
+together

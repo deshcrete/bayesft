@@ -73,18 +73,18 @@ def persona_means(persona_num):
         p = PersonaPrompted(client, p_data["persona"][0], p_data, 5)
 
         # Generate completions and get mean embedding for this persona
-        _, mean_embedding = p.getAverageEmbedding(inference_prompts, model="Qwen/Qwen3-1.7B")
+        _, mean_embedding = p.getAverageEmbedding(inference_prompts, model="google/gemma-3n-E4B-it")
         persona_embeddings.append(mean_embedding)
 
     return persona_embeddings
-
+""" 
 mixture_data = load_from_disk("./data/mixture")
 mixture = PersonaLLM(mixture_data, "pretrain", "./mixture/pretrain", "Qwen/Qwen3-1.7B", True)
 mixture.fine_tune()
-mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
+mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data) """
 
 
-def mixture_mean_finetuned(model_name="Qwen/Qwen3-1.7B", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
+def mixture_mean_finetuned(model_name="google/gemma-3n-E4B-it", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
     """Generate completions from the fine-tuned mixture model and compute mean embedding."""
     print("> Generating Mixture Mean from Fine-tuned Model")
 
@@ -157,3 +157,5 @@ def run_embed_inference(persona_num=6):
 
     print(f"\nInferred weights: {posterior.weights}")
     return posterior.weights
+
+run_embed_inference()
