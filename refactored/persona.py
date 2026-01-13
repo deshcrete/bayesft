@@ -77,7 +77,7 @@ class PersonaLLM:
         lora_config = LoraConfig(
             r=8,
             lora_alpha=16,
-            target_modules=['c_attn'],
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], #c_attn for gpt2
             lora_dropout=0.1,
             bias='none',
             task_type='CAUSAL_LM'
@@ -115,7 +115,7 @@ class PersonaLLM:
         lora_config = LoraConfig(
             r=8,
             lora_alpha=16,
-            target_modules=['c_attn'],
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], #c_attn for gpt2
             lora_dropout=0.1,
             bias='none',
             task_type='CAUSAL_LM'
@@ -260,7 +260,7 @@ class PersonaPrompted:
 
         return response.choices[0].message.content
 
-    def getCompletionEmbedding(self, prompt, model="Qwen/Qwen2-1.5B-Instruct", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
+    def getCompletionEmbedding(self, prompt, model="Qwen/Qwen2-1.5B-Instruct", embed_model="Alibaba-NLP/gte-modernbert-base"):
         """Generate completion and return its embedding."""
         # Generate completion
         completion = self.generateCompletion(prompt, model)
@@ -275,7 +275,7 @@ class PersonaPrompted:
 
         return completion, embedding
 
-    def getAverageEmbedding(self, prompts, model="Qwen/Qwen2-1.5B-Instruct", embed_model="togethercomputer/m2-bert-80M-8k-retrieval"):
+    def getAverageEmbedding(self, prompts, model="Qwen/Qwen2-1.5B-Instruct", embed_model="Alibaba-NLP/gte-modernbert-base"):
         """Generate completions for multiple prompts and return mean embedding."""
         embeddings = []
         completions = []
