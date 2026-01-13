@@ -58,7 +58,7 @@ inference_data = load_from_disk("./data/infer")
 
 mixture_data = load_from_disk("./data/mixture")
 mixture = PersonaLLM(mixture_data, "pretrain", "./mixture/pretrain", "gpt2-large", True)
-
+mixture.fine_tune()
 
 def get_embeds(persona_num, model_name):
     print("> Training Persona LLMs")

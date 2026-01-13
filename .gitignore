@@ -11,5 +11,7 @@ datasetCreate/hf_api_key.txt
 datasetCreate/openai.txt
 datasetCreate/huggingface.txt
 
+logProbExpr/api_key.txt
+
 
 

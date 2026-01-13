@@ -70,20 +70,23 @@ class EmbedPosterior:
         logprob_vector = self.logprob_vec
 
         n, m = logprob_matrix.shape
-        
-        def objective(log_weights):
-            return np.sum(((np.dot(log_weights, logprob_matrix ) - logprob_vector) ** 2))
-        
-        def constraint_sum_to_one(log_weights):
-            return np.sum(log_weights)
-        
-        log_w_init = np.zeros(6)
-        
+
+        def objective(weights):
+            return np.sum(((np.dot(weights, logprob_matrix) - logprob_vector) ** 2))
+
+        def constraint_sum_to_one(weights):
+            return np.sum(weights)
+
+        # Initialize with uniform weights
+        w_init = np.ones(n) / n
+
         result = minimize(
             objective,
-            log_w_init,
-            constraints={'type': 'eq', 'fun': lambda lw: constraint_sum_to_one(lw) - 1},
+            w_init,
+            bounds=[(0, 1) for _ in range(n)],  # Constrain weights to [0, 1]
+            constraints={'type': 'eq', 'fun': lambda w: constraint_sum_to_one(w) - 1},
             method='SLSQP'
         )
-        
+
         self.weights = result.x
+

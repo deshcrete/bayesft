@@ -77,7 +77,7 @@ class PersonaLLM:
         lora_config = LoraConfig(
             r=8,
             lora_alpha=16,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], #c_attn for gpt2
+            target_modules=["c_attn", "c_proj"],  # GPT-2 uses c_attn and c_proj
             lora_dropout=0.1,
             bias='none',
             task_type='CAUSAL_LM'
@@ -115,7 +115,7 @@ class PersonaLLM:
         lora_config = LoraConfig(
             r=8,
             lora_alpha=16,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], #c_attn for gpt2
+            target_modules=["c_attn", "c_proj"],  # GPT-2 uses c_attn and c_proj
             lora_dropout=0.1,
             bias='none',
             task_type='CAUSAL_LM'
