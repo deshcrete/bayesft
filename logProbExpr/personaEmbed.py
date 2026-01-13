@@ -11,13 +11,17 @@ from openai import OpenAI
 from vllm import LLM, SamplingParams
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+<<<<<<< HEAD
 from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model, PeftModel
 from functools import partial
+=======
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 
 
 class PersonaEmbed:
 
+<<<<<<< HEAD
     def __init__(self, systemPrompt, dataset, modelName, key, lora_adapter_path=None):
         """
         Initialize PersonaEmbed.
@@ -29,13 +33,19 @@ class PersonaEmbed:
             key: OpenAI API key for embeddings
             lora_adapter_path: Optional path to LoRA adapter weights
         """
+=======
+    def __init__(self, systemPrompt, dataset, modelName, key):
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
         self.systemPrompt = systemPrompt
         self.dataset = dataset
         self.modelName = modelName
         self.modelPrompts = dataset["prompt"]
         self.modelCompletions = dataset["completion"]
         self.api_key = key
+<<<<<<< HEAD
         self.lora_adapter_path = lora_adapter_path
+=======
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
     
     #assume the promptDataset is just a list of prompts as strings
     #generate ICL pairs using modelPrompts and modelCompletions
@@ -103,6 +113,7 @@ class PersonaEmbed:
         else:
             gpu_mem_util = 0.5
 
+<<<<<<< HEAD
         # Initialize vLLM with optional LoRA adapter
         vllm_kwargs = {
             "model": self.modelName,
@@ -116,6 +127,14 @@ class PersonaEmbed:
             vllm_kwargs["enable_lora"] = True
 
         llm = LLM(**vllm_kwargs)
+=======
+        # Initialize vLLM
+        llm = LLM(
+            model=self.modelName,
+            tensor_parallel_size=torch.cuda.device_count() if torch.cuda.is_available() else 1,
+            gpu_memory_utilization=gpu_mem_util
+        )
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 
         # Set sampling parameters
         sampling_params = SamplingParams(
@@ -126,6 +145,7 @@ class PersonaEmbed:
 
         print(f"Generating completions for {len(self.newPromptDataset)} prompts...")
 
+<<<<<<< HEAD
         # Generate completions in batch with optional LoRA
         if self.lora_adapter_path:
             from vllm.lora.request import LoRARequest
@@ -133,6 +153,10 @@ class PersonaEmbed:
             outputs = llm.generate(self.newPromptDataset, sampling_params, lora_request=lora_request)
         else:
             outputs = llm.generate(self.newPromptDataset, sampling_params)
+=======
+        # Generate completions in batch
+        outputs = llm.generate(self.newPromptDataset, sampling_params)
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 
         # Extract completions
         completions = [output.outputs[0].text for output in outputs]
@@ -269,6 +293,7 @@ class PersonaEmbed:
             torch.cuda.empty_cache()
         print("Cleaned up PersonaEmbed instance")
 
+<<<<<<< HEAD
     def tokenize(self, examples, tokenizer, label_size):
         """
         Tokenize examples for fine-tuning.
@@ -395,3 +420,5 @@ class PersonaEmbed:
         print(f"LoRA adapter path set to: {adapter_path}")
         print("Adapter will be used in next generateCompletions() call")
 
+=======
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58

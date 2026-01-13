@@ -1,5 +1,9 @@
 from dataset import DataSplitter
 from personaEmbed import PersonaEmbed
+<<<<<<< HEAD
+=======
+from persona import PersonaLLM
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 from posterior import EmbedPosterior
 from datasets import load_dataset, Dataset
 from collections import defaultdict
@@ -92,6 +96,7 @@ def extract_persona_system_prompts(inference_data):
     return persona_prompts
 
 
+<<<<<<< HEAD
 def mixtureEmbeddings(inference_prompts, num_samples=10):
     """
     Fine-tune a mixture model with LoRA and generate embeddings for inference prompts.
@@ -181,6 +186,13 @@ def mixtureEmbeddings(inference_prompts, num_samples=10):
 
     return averaged_embeddings
     
+=======
+def mixtureEmbeddings():
+    mixture_data = load_from_disk("./data/mixture")
+    mixture = PersonaLLM(mixture_data, "pretrain", "./mixture/pretrain", "google/gemma-3-270m", True)
+    mixture.fine_tune()
+    mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 
 
 def check_gpu_processes():
@@ -197,7 +209,31 @@ def check_gpu_processes():
         print(f"Could not run nvidia-smi: {e}")
 
 
+<<<<<<< HEAD
 def genPersonaExpectations():
+=======
+def main():
+    # Check what's using GPU memory
+    check_gpu_processes()
+
+    # Clean GPU memory before starting
+    print("Cleaning GPU memory before starting...")
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        # Print GPU memory stats
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+            print(f"  Allocated by PyTorch: {torch.cuda.memory_allocated(i) / 1024**3:.2f} GB")
+            print(f"  Cached by PyTorch: {torch.cuda.memory_reserved(i) / 1024**3:.2f} GB")
+            free_mem, total_mem = torch.cuda.mem_get_info(i)
+            print(f"  Free: {free_mem / 1024**3:.2f} GB / Total: {total_mem / 1024**3:.2f} GB")
+
+    # Initialize OpenAI client
+    client = OpenAI(api_key=openai_api_key)
+
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
     # Step 0: Extract persona system prompts from inference data
     persona_prompts = extract_persona_system_prompts(inference_data)
 
@@ -232,6 +268,7 @@ def genPersonaExpectations():
         json.dump(all_embeddings, f, indent=2)
     print(f"Successfully saved embeddings for {len(all_embeddings)} personas")
 
+<<<<<<< HEAD
 def solve_persona_weights():
     """
     Load persona and mixture embeddings, then solve for optimal weights using EmbedPosterior.
@@ -340,6 +377,8 @@ def main(include_mixture=False, solve_weights=True):
     print("\n" + "="*80)
     print("All Processing Complete!")
     print("="*80)
+=======
+>>>>>>> 5465aed86562a8ceb8f8dda923d32b100a52cb58
 
 if __name__ == "__main__":
     main()
