@@ -179,26 +179,31 @@ class PersonaLLM:
 
         results.save_to_disk(out_path)
 
-    def encoding_vector(self, api_key):
+    def encoding_vector(self, api_key, sample_size=1000):
         #get emebeddings and return mean embedding vector
         client = OpenAI(api_key = api_key)
 
-        
-        if not self.isMixture:
+        completions = list(self.dataset["completion"])
 
+        # Sample if dataset is too large (OpenAI has batch limits)
+        if len(completions) > sample_size:
+            indices = random.sample(range(len(completions)), sample_size)
+            completions = [completions[i] for i in indices]
+
+        # Batch embeddings to avoid API limits (max ~2000 per request)
+        batch_size = 500
+        all_embeddings = []
+
+        for i in tqdm(range(0, len(completions), batch_size), desc="Embedding batches"):
+            batch = completions[i:i + batch_size]
             response = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=list(self.dataset["completion"])) #change this to the inference data
-        
-        else:
+                model="text-embedding-3-small",
+                input=batch
+            )
+            for item in response.data:
+                all_embeddings.append(np.array(item.embedding))
 
-            response = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=list(self.dataset["completion"])[10000:20000])
-
-        embeddings = [np.array(item.embedding) for item in response.data]
-
-        self.encod_vec = np.mean(embeddings, axis=0)
+        self.encod_vec = np.mean(all_embeddings, axis=0)
     
     def set_weight(self, weight):
         self.weight = weight
