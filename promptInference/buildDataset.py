@@ -128,7 +128,7 @@ def gen_prompts():
         outPrompts.append(prompt_transform(prompt))
     print("prompt prepared")
 
-    with open("./scripts/datasetCreate/promptSystemPrompt.txt") as g:
+    with open("./promptInference/promptSystemPrompt.txt") as g:
         system_prompt_prompt = g.read()
 
     print("generating prompts")
@@ -145,7 +145,7 @@ def gen_personas():
         outPersonas.append(persona_transform(persona))
     print("personas prepared")
 
-    with open("./scripts/datasetCreate/personaSystemPrompt.txt") as g:
+    with open("./datasetCreate/personaSystemPrompt.txt") as g:
         system_prompt_persona = g.read()
 
     print("generating personas")

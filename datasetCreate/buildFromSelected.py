@@ -5,7 +5,7 @@ from datasets import Dataset
 from tqdm import tqdm
 
 from personaSelector import generate_and_select_personas
-from buildDataset import (
+from promptInference.buildDataset import (
     preProcessPrompts,
     prompt_transform,
     persona_system_prompt_transform,
