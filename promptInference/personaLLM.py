@@ -19,36 +19,33 @@ class Persona():
 
     def load_model(self):
         if self.llm is None:
-            self.llm = LLM(model=self.model_name)
+            self.llm = LLM(model=self.model_name, max_model_len=2048, gpu_memory_utilization=0.6)
 
     def unload_model(self):
         if self.llm is not None:
-            destroy_model_parallel()
             del self.llm
             self.llm = None
             gc.collect()
             torch.cuda.empty_cache()
-            torch.distributed.destroy_process_group()
             print("Model unloaded and VRAM freed.")
 
     def generate_completions(self, prompts, n_completions=1, temperature=0.7, max_tokens=256):
         self.load_model()
 
-        conversations = []
+        # Format prompts manually instead of using chat format
+        formatted_prompts = []
         for prompt in prompts:
-            conversation = [
-                {"role": "system", "content": self.sysPrompt},
-                {"role": "user", "content": prompt}
-            ]
+            # Manually format: system prompt + user prompt
+            formatted_prompt = f"{self.sysPrompt}\n\nUser: {prompt}\n\nAssistant:"
             for _ in range(n_completions):
-                conversations.append(conversation)
+                formatted_prompts.append(formatted_prompt)
 
         sampling_params = SamplingParams(
             temperature=temperature,
             max_tokens=max_tokens
         )
 
-        outputs = self.llm.chat(conversations, sampling_params)
+        outputs = self.llm.generate(formatted_prompts, sampling_params)
 
         flat_completions = [output.outputs[0].text for output in outputs]
 
@@ -61,18 +58,50 @@ class Persona():
         return completions
 
     def embed_completions(self, completions):
+        import time
+
         flat_completions = []
         prompt_lengths = []
+
         for completion_list in completions:
-            prompt_lengths.append(len(completion_list))
-            flat_completions.extend(completion_list)
+            cleaned_list = []
+            for completion in completion_list:
+                # Extract only the assistant's response (everything after the last "Assistant:")
+                if "Assistant:" in completion:
+                    parts = completion.split("Assistant:")
+                    # Get the last assistant response
+                    response = parts[-1].strip()
+                else:
+                    response = completion.strip()
 
-        response = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=flat_completions
-        )
+                # Replace empty/whitespace-only responses with a placeholder
+                # This maintains the list length while fixing the API error
+                if not response or response.replace('&nbsp;', '').replace('\n', '').replace(' ', '') == '':
+                    response = "No response."
 
-        embeddings = [item.embedding for item in response.data]
+                cleaned_list.append(response)
+
+            # Maintain the same length as the original list
+            prompt_lengths.append(len(cleaned_list))
+            flat_completions.extend(cleaned_list)
+
+        # Batch embeddings to avoid rate limits (max 300k tokens per request)
+        batch_size = 100  # Smaller batch to stay under token limit
+        all_embeddings = []
+
+        for i in range(0, len(flat_completions), batch_size):
+            batch = flat_completions[i:i + batch_size]
+            response = client.embeddings.create(
+                model="text-embedding-3-small",
+                input=batch
+            )
+            all_embeddings.extend([item.embedding for item in response.data])
+
+            # Rate limiting: sleep between batches to avoid hitting RPM limits
+            if i + batch_size < len(flat_completions):
+                time.sleep(1)
+
+        embeddings = all_embeddings
 
         avg_embeddings = []
         idx = 0
@@ -130,13 +159,20 @@ class Mixture(Persona):
         trainer = SFTTrainer(
             model=model,
             train_dataset=self.mixtureDataset,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             args=sft_config,
         )
 
         trainer.train()
-        trainer.save_model(self.output_dir)
+
+        # Merge LoRA adapter with base model for vllm compatibility
+        print("Merging LoRA adapter with base model...")
+        model = model.merge_and_unload()
+
+        # Save the merged model
+        model.save_pretrained(self.output_dir)
         tokenizer.save_pretrained(self.output_dir)
+        print(f"Merged model saved to {self.output_dir}")
 
         del model
         del trainer
@@ -151,23 +187,23 @@ class Mixture(Persona):
         if self.model_name is None:
             raise ValueError("Model not finetuned yet. Call finetune() first.")
         if self.llm is None:
-            self.llm = LLM(model=self.model_name)
+            self.llm = LLM(model=self.model_name, gpu_memory_utilization=0.6)
 
     def generate_completions(self, prompts, n_completions=1, temperature=0.7, max_tokens=256):
         self.load_model()
 
-        conversations = []
+        # Format prompts (no system prompt for mixture)
+        formatted_prompts = []
         for prompt in prompts:
-            conversation = [{"role": "user", "content": prompt}]
             for _ in range(n_completions):
-                conversations.append(conversation)
+                formatted_prompts.append(prompt)
 
         sampling_params = SamplingParams(
             temperature=temperature,
             max_tokens=max_tokens
         )
 
-        outputs = self.llm.chat(conversations, sampling_params)
+        outputs = self.llm.generate(formatted_prompts, sampling_params)
 
         flat_completions = [output.outputs[0].text for output in outputs]
 

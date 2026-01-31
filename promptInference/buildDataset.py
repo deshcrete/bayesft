@@ -119,9 +119,9 @@ async def batch_query_llm_dataset(prompts, system_prompts, model="gpt-4o-mini", 
     return results
 
 
-def gen_prompts():
+def gen_prompts(promptNum):
     print("preparing prompts")
-    prompts = preProcessPrompts(42, 100)
+    prompts = preProcessPrompts(42, promptNum)
     outPrompts = []
 
     for prompt in prompts:

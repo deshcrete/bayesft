@@ -7,6 +7,7 @@ from openai import OpenAI
 import numpy as np
 from tqdm import tqdm
 import random
+from huggingface_hub import HfApi, create_repo
 class PersonaLLM:
     def __init__(self, dataset, persona_name, model_store_path, model_name, isMixture):
         self.dataset = dataset
@@ -207,6 +208,42 @@ class PersonaLLM:
     
     def set_weight(self, weight):
         self.weight = weight
+
+    def save_to_hub(self, hf_repo_name, token=None):
+        """
+        Save the fine-tuned LoRA adapter to HuggingFace Hub.
+
+        Args:
+            hf_repo_name: The HuggingFace repository name (e.g., "username/repo-name")
+            token: HuggingFace API token (optional if already logged in)
+        """
+        # Load the trained model
+        base_model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        model = PeftModel.from_pretrained(base_model, self.model_peft_path)
+
+        # Push to hub
+        model.push_to_hub(hf_repo_name, token=token)
+        self.tokenizer.push_to_hub(hf_repo_name, token=token)
+
+        print(f"Model saved to HuggingFace Hub: {hf_repo_name}")
+
+    def load_from_hub(self, hf_repo_name, token=None):
+        """
+        Load a fine-tuned LoRA adapter from HuggingFace Hub.
+
+        Args:
+            hf_repo_name: The HuggingFace repository name (e.g., "username/repo-name")
+            token: HuggingFace API token (optional if already logged in)
+
+        Returns:
+            The loaded PeftModel ready for inference
+        """
+        base_model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        model = PeftModel.from_pretrained(base_model, hf_repo_name, token=token)
+        model.eval()
+
+        print(f"Model loaded from HuggingFace Hub: {hf_repo_name}")
+        return model
 
 
 #do the same thing as persona prompted but instead of getting the embedding

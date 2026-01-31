@@ -48,7 +48,7 @@ class DataSplitter:
         for i in range(len(ds)):
             for j in range(len(ds[i])):
                 prompts.append(ds[i][j]["prompt"])
-                completions.append(ds[i][j]["completions"])
+                completions.append(ds[i][j]["completion"])
                 personas.append(ds[i][j]["persona"])
         
         out_ds = Dataset.from_dict({"prompt":prompts, "persona":personas, "completion":completions})

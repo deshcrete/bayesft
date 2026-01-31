@@ -9,3 +9,5 @@ openai
 huggingface_hub
 together
 vllm
+trl
+timm

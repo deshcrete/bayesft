@@ -16,3 +16,12 @@ logProbExpr/api_key.txt
 logProbExpr/hftoken.txt
 
 results
+
+*/huggingface.txt
+*/openai.txt
+
+finetuned_model
+finetuned_model_merged
+finetuned_model_merged_large
+
+*.pyc
