@@ -156,9 +156,11 @@ class Mixture(Persona):
             save_strategy="epoch",
         )
 
+        
+        
         trainer = SFTTrainer(
             model=model,
-            train_dataset=self.mixtureDataset,
+            train_dataset=self.mixtureDataset.remove_columns(["persona"]),
             processing_class=tokenizer,
             args=sft_config,
         )
