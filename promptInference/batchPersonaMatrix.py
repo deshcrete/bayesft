@@ -4,6 +4,7 @@ Instead of loading/unloading VLLM for each persona, this loads VLLM once
 and processes all persona+prompt combinations in a single batch.
 """
 
+import os
 from vllm import LLM, SamplingParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 import openai
@@ -253,14 +254,15 @@ def batch_mixture_embeddings(
     Returns:
         mixture_vector: Tensor of shape (num_prompts * embedding_dim, 1)
     """
+    finetuned_model_path = os.path.abspath(finetuned_model_path)
     print(f"Loading fine-tuned mixture model from: {finetuned_model_path}")
     llm = LLM(model=finetuned_model_path, gpu_memory_utilization=0.6)
 
-    # Prepare prompts (no system prompt for mixture)
+    # Prepare prompts — match the same format used for persona columns
     formatted_prompts = []
     for prompt in prompts:
         for _ in range(n_completions):
-            formatted_prompts.append(prompt)
+            formatted_prompts.append(f"User: {prompt}\n\nAssistant:")
 
     print(f"Generating {len(formatted_prompts)} mixture completions...")
     sampling_params = SamplingParams(

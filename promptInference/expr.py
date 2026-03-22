@@ -86,6 +86,83 @@ def solve_mixture_weights(persona_matrix, mixture_vector):
     return weights
 
 
+def sanity_check(persona_matrix, unique_personas, prompts, n_check_prompts=50):
+    """
+    Two-stage sanity check for the matrix A before trusting any mixture inference.
+
+    Stage 1 — Algebraic rank check:
+        Solve Ax = A[:,i] for each persona i.  If A has full column rank, the
+        unique solution is x = e_i (all weight on persona i).  Failure here
+        means the columns are collinear and the whole approach is broken.
+
+    Stage 2 — Fresh-sample check:
+        Re-generate completions for one persona using its system prompt on a
+        held-out subset of prompts, embed them, and solve.  This tests whether
+        fresh draws from the same persona land near the right column of A.
+    """
+    m = persona_matrix.shape[1]
+    check_prompts = prompts[:n_check_prompts]
+
+    # ── Stage 1: Algebraic rank check ─────────────────────────────────────────
+    print("\n" + "=" * 50)
+    print("SANITY CHECK — Stage 1: Algebraic rank check")
+    print("=" * 50)
+    stage1_pass = True
+    for i in range(m):
+        query = persona_matrix[:, i:i+1]
+        weights = solve_mixture_weights(persona_matrix, query)
+        recovered = weights.argmax().item()
+        top_weight = weights.max().item()
+        status = "PASS" if recovered == i else "FAIL"
+        if recovered != i:
+            stage1_pass = False
+        print(f"  Persona {i}: top weight={top_weight:.3f} at index {recovered}  [{status}]")
+
+    if not stage1_pass:
+        print("\n[WARNING] Stage 1 FAILED — columns of A are near-collinear.")
+        print("  The personas do not produce distinguishable embeddings.")
+        print("  Mixture inference cannot work reliably with this matrix.")
+    else:
+        print("\n[OK] Stage 1 passed — A has full effective column rank.")
+
+    # ── Stage 2: Fresh-sample check for persona 0 ─────────────────────────────
+    print("\n" + "=" * 50)
+    print("SANITY CHECK — Stage 2: Fresh-sample check (persona 0)")
+    print("=" * 50)
+    print(f"Re-generating completions for persona 0 on {n_check_prompts} held-out prompts...")
+
+    fresh_matrix = batch_persona_matrix(
+        persona_prompts=[unique_personas[0]],
+        prompts=check_prompts,
+        model_name="google/gemma-3-270m",
+        n_completions=5,
+        temperature=0.7,
+        max_tokens=256,
+    )
+    # fresh_matrix is shape (n_check_prompts * emb_dim, 1)
+    # Align with the row dimension of the full persona_matrix by taking the
+    # same prompts' rows from it.
+    emb_dim = persona_matrix.shape[0] // len(prompts)
+    rows_to_keep = n_check_prompts * emb_dim
+    A_sub = persona_matrix[:rows_to_keep, :]
+
+    weights = solve_mixture_weights(A_sub, fresh_matrix)
+    recovered = weights.argmax().item()
+    top_weight = weights.max().item()
+    status = "PASS" if recovered == 0 else "FAIL"
+    print(f"\n  Fresh persona 0 query: top weight={top_weight:.3f} at index {recovered}  [{status}]")
+    print(f"  Full weights: {weights.flatten().tolist()}")
+
+    if recovered != 0:
+        print("\n[WARNING] Stage 2 FAILED — fresh persona 0 samples don't recover persona 0.")
+        print("  Either the embedding is too noisy at this scale, or the approach")
+        print("  cannot distinguish implicitly-shifted models from explicitly-prompted ones.")
+    else:
+        print("\n[OK] Stage 2 passed — fresh persona 0 samples correctly recovered.")
+
+    return stage1_pass, (recovered == 0)
+
+
 def main_batch():
     """
     Main function using batch processing for VLLM (FAST VERSION).
@@ -172,13 +249,22 @@ def main_batch():
         print(f"Persona matrix saved to {persona_matrix_path}")
 
     print("\n" + "=" * 50)
+    """ print("STEP 5.5: Sanity check on persona matrix")
+    print("=" * 50)
+    stage1_ok, stage2_ok = sanity_check(persona_matrix, unique_personas, prompts)
+    if not stage1_ok:
+        print("\n[STOPPING] Stage 1 sanity check failed — matrix is degenerate.")
+        print("Mixture inference results would be meaningless. Exiting.")
+        return None """
+
+    print("\n" + "=" * 50)
     print("STEP 6: Fine-tuning mixture model and generating embeddings")
     print("=" * 50)
 
-    mixture_output_dir = "./finetuned_model_merged_large"
-    usePreexist = False
+    mixture_output_dir = "shifted_model_persona_0"
+    usePreexist = True
     # Fine-tune if not already done
-    if not os.path.exists(mixture_output_dir) and not usePreexist:
+    if (not usePreexist) and os.path.exists(mixture_output_dir):
         print("Fine-tuning mixture model...")
         mixture = Mixture(mixtureDataset=mixture_data, output_dir=mixture_output_dir, base_model="google/gemma-3-270m")
         mixture.finetune(num_epochs=3)
@@ -192,7 +278,7 @@ def main_batch():
         mixture_dataset=mixture_data,
         prompts=prompts,
         finetuned_model_path=mixture_output_dir,
-        n_completions=1,
+        n_completions=5,
         temperature=0.7,
         max_tokens=256
     )

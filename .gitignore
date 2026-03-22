@@ -1,7 +1,7 @@
 data/
 lora_weights/
 trainer_output/
-
+uniform_prior/
 refactored/api_key.txt
 refactored/together_api_key.txt
 
@@ -16,7 +16,7 @@ logProbExpr/api_key.txt
 logProbExpr/hftoken.txt
 
 results
-
+shifted_model_persona_0
 */huggingface.txt
 */openai.txt
 

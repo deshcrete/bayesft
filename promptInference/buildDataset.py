@@ -90,11 +90,15 @@ Answer the following question as this person would:
 
 
 
+def _sanitize(text):
+    # Remove null bytes and invalid surrogate characters that break JSON serialization
+    return text.encode('utf-8', errors='replace').decode('utf-8').replace('\x00', '')
+
 async def query_llm(prompt, system_prompt=None, model="gpt-4o-mini", temperature=0.7, max_tokens=100):
     messages = []
     if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "system", "content": _sanitize(system_prompt)})
+    messages.append({"role": "user", "content": _sanitize(prompt)})
     
     response = await client.chat.completions.create(
         model=model,
