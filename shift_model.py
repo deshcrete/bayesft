@@ -9,6 +9,12 @@ PERSONA_IDX = 0
 BASE_MODEL = "uniform_prior"
 OUTPUT_DIR = f"./shifted_model_persona_{PERSONA_IDX}_v2"
 
+# If True, load the pre-built single-persona dataset from GENERATED_DATASET_DIR
+# instead of filtering the source HF dataset (recommended — avoids degenerate training).
+# Run build_persona_dataset.py first to generate it.
+USE_GENERATED_DATASET = True
+GENERATED_DATASET_DIR = f"./data/persona_0_sft_dataset"
+
 
 def get_persona_dataset(persona_str, full_dataset):
     """
@@ -41,37 +47,54 @@ def main():
         split_sizes=[0.1, 0.1, 0.3, 0.4]
     ).split_data()
 
-    # ── Step 2: Load full dataset to maximise per-persona samples ─────────────
-    print("\n" + "=" * 50)
-    print("STEP 2: Loading full dataset for single-persona extraction")
-    print("=" * 50)
-    full_dataset = load_dataset("desh2806/bayesft-similar", split="train")
-    print(f"Full dataset size: {len(full_dataset)}")
+    # ── Step 2 & 3: Load persona dataset ─────────────────────────────────────
+    if USE_GENERATED_DATASET and os.path.exists(GENERATED_DATASET_DIR):
+        print("\n" + "=" * 50)
+        print(f"STEP 2: Loading generated persona dataset from {GENERATED_DATASET_DIR}")
+        print("=" * 50)
+        persona_dataset = load_from_disk(GENERATED_DATASET_DIR)
+        # Load persona string for logging
+        persona_json = os.path.join(GENERATED_DATASET_DIR, "persona.json")
+        if os.path.exists(persona_json):
+            with open(persona_json) as f:
+                target_persona = json.load(f)["persona"]
+        else:
+            target_persona = persona_dataset["persona"][0]
+        print(f"Loaded {len(persona_dataset)} samples")
+        print(f"Target persona (index {PERSONA_IDX}):\n{target_persona[:200]}...")
+    else:
+        if USE_GENERATED_DATASET:
+            print(f"\n[WARN] Generated dataset not found at {GENERATED_DATASET_DIR}.")
+            print("[WARN] Run build_persona_dataset.py first for better results.")
+            print("[WARN] Falling back to filtering the source HF dataset.\n")
 
-    # ── Step 3: Pick a persona ────────────────────────────────────────────────
-    print("\n" + "=" * 50)
-    print("STEP 3: Selecting target persona")
-    print("=" * 50)
-    unique_personas = sorted(set(full_dataset["persona"]))
-    print(f"Found {len(unique_personas)} unique personas")
+        print("\n" + "=" * 50)
+        print("STEP 2: Loading full dataset for single-persona extraction")
+        print("=" * 50)
+        full_dataset = load_dataset("desh2806/bayesft-similar", split="train")
+        print(f"Full dataset size: {len(full_dataset)}")
 
-    target_persona = unique_personas[PERSONA_IDX]
-    print(f"Target persona (index {PERSONA_IDX}):\n{target_persona[:200]}...")
+        print("\n" + "=" * 50)
+        print("STEP 3: Selecting target persona")
+        print("=" * 50)
+        unique_personas = sorted(set(full_dataset["persona"]))
+        print(f"Found {len(unique_personas)} unique personas")
 
-    os.makedirs("./data", exist_ok=True)
-    with open(f"./data/target_persona_{PERSONA_IDX}.json", "w") as f:
-        json.dump({"persona_idx": PERSONA_IDX, "persona": target_persona}, f, indent=2)
+        target_persona = unique_personas[PERSONA_IDX]
+        print(f"Target persona (index {PERSONA_IDX}):\n{target_persona[:200]}...")
 
-    # ── Step 4: Build large single-persona dataset ────────────────────────────
-    print("\n" + "=" * 50)
-    print("STEP 4: Filtering and formatting dataset for target persona")
-    print("=" * 50)
-    persona_dataset = get_persona_dataset(target_persona, full_dataset)
+        os.makedirs("./data", exist_ok=True)
+        with open(f"./data/target_persona_{PERSONA_IDX}.json", "w") as f:
+            json.dump({"persona_idx": PERSONA_IDX, "persona": target_persona}, f, indent=2)
+
+        print("\n" + "=" * 50)
+        print("STEP 4: Filtering and formatting dataset for target persona")
+        print("=" * 50)
+        persona_dataset = get_persona_dataset(target_persona, full_dataset)
+        persona_dataset.save_to_disk(f"./data/persona_{PERSONA_IDX}_dataset")
+
     print(f"Single-persona dataset size: {len(persona_dataset)} samples")
     print(f"Columns: {persona_dataset.column_names}")
-
-    persona_dataset.save_to_disk(f"./data/persona_{PERSONA_IDX}_dataset")
-    print(f"Saved to ./data/persona_{PERSONA_IDX}_dataset")
 
     # ── Step 5: Fine-tune uniform_prior on single-persona data ────────────────
     print("\n" + "=" * 50)
@@ -84,10 +107,10 @@ def main():
         output_dir=OUTPUT_DIR
     )
     mixture.finetune(
-        num_epochs=5,
-        learning_rate=5e-5,  # lower LR for stable convergence
-        lora_r=64,           # more capacity to shift from uniform prior
-        lora_alpha=128,
+    num_epochs=5,
+    learning_rate=2e-4,   # can go higher with smaller r
+    lora_r=16,
+    lora_alpha=32,
     )
 
     print("\n" + "=" * 50)

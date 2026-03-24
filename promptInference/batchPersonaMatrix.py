@@ -42,7 +42,8 @@ def batch_persona_matrix(
         embedding_matrix: Tensor of shape (num_prompts * embedding_dim, num_personas)
     """
     print(f"Loading VLLM model: {model_name}")
-    llm = LLM(model=model_name, gpu_memory_utilization=0.6)
+    llm = LLM(model=model_name, gpu_memory_utilization=0.6, enforce_eager=True,
+              attention_backend="TORCH_SDPA")
 
     print(f"Preparing batch of {len(persona_prompts)} personas × {len(prompts)} prompts × {n_completions} completions")
 
@@ -256,7 +257,8 @@ def batch_mixture_embeddings(
     """
     finetuned_model_path = os.path.abspath(finetuned_model_path)
     print(f"Loading fine-tuned mixture model from: {finetuned_model_path}")
-    llm = LLM(model=finetuned_model_path, gpu_memory_utilization=0.6)
+    llm = LLM(model=finetuned_model_path, gpu_memory_utilization=0.6, enforce_eager=True,
+              attention_backend="TORCH_SDPA")
 
     # Prepare prompts — match the same format used for persona columns
     formatted_prompts = []
