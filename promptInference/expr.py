@@ -168,9 +168,26 @@ def main_batch():
     Main function using batch processing for VLLM (FAST VERSION).
     This loads VLLM once for all personas instead of loading/unloading repeatedly.
     """
+    import subprocess, sys as _sys
     print("=" * 50)
     print("BATCH PROCESSING MODE")
     print("=" * 50)
+
+    # Free any stale GPU processes left over from previous runs
+    print("\nCleaning up stale GPU processes...")
+    result = subprocess.run(
+        ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        pids = [int(p.strip()) for p in result.stdout.strip().splitlines() if p.strip()]
+        if pids:
+            print(f"  Killing {len(pids)} stale GPU process(es): {pids}")
+            for pid in pids:
+                subprocess.run(["kill", "-9", str(pid)], capture_output=True)
+        else:
+            print("  No stale GPU processes found.")
+    import time as _time; _time.sleep(2)  # brief pause for VRAM to release
 
     print("\n" + "=" * 50)
     print("STEP 1: Splitting dataset")
@@ -215,6 +232,8 @@ def main_batch():
     print("STEP 4: Extracting unique personas from mixture dataset")
     print("=" * 50)
     unique_personas = get_unique_personas(mixture_data)
+    print(unique_personas)
+    quit
     print(f"Found {len(unique_personas)} unique personas")
 
     print("\n" + "=" * 50)
@@ -261,7 +280,7 @@ def main_batch():
     print("STEP 6: Fine-tuning mixture model and generating embeddings")
     print("=" * 50)
 
-    mixture_output_dir = "shifted_model_persona_0"
+    mixture_output_dir = "shifted_model_french_persona"
     usePreexist = True
     # Fine-tune if not already done
     if (not usePreexist) and os.path.exists(mixture_output_dir):

@@ -14,6 +14,8 @@ datasetCreate/huggingface.txt
 logProbExpr/api_key.txt
 
 logProbExpr/hftoken.txt
+shifted_model_french_persona
+persona_0_sft
 
 results
 shifted_model_persona_0
