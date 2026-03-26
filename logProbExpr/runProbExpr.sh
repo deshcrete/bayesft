@@ -1,4 +1,4 @@
-for i in {1..4}; do
+for i in {1}; do
     echo "Expr Num: $i"
     echo "========== STARTING NEW EXPERIMENT ===================="
 

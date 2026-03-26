@@ -246,10 +246,51 @@ class PersonaLLM:
         return model
 
 
+class PretrainedPersonaLLM:
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.model.eval()
+
+    def gen_logprobs(self, out_path, inference_data):
+        tokenizer = self.tokenizer
+        model = self.model
+        model.cuda()
+
+        dataset = inference_data
+
+        def get_logprobs(example):
+            full_text = example['prompt'] + example['completion']
+            full_ids = tokenizer(full_text, return_tensors='pt').input_ids.cuda()
+
+            prompt_ids = tokenizer(example['prompt'], return_tensors='pt').input_ids
+            prompt_len = prompt_ids.shape[1]
+
+            with torch.no_grad():
+                logits = model(full_ids).logits
+
+            logprobs = torch.log_softmax(logits, dim=-1)
+
+            total_logprob = 0.0
+            completion_len = full_ids.shape[1] - prompt_len
+            for j in range(completion_len):
+                token_id = full_ids[0, prompt_len + j]
+                logprob = logprobs[0, prompt_len + j - 1, token_id].item()
+                total_logprob += logprob
+
+            return {'completion_logprob': total_logprob}
+
+        results = dataset.map(get_logprobs)
+
+        self.logprobs = results
+
+        results.save_to_disk(out_path)
+
+
 #do the same thing as persona prompted but instead of getting the embedding
 #generate logprobs by masking system prompt, ICL pairs and prompt
-#eliminate finetuning the persona LLMs 
-    
+#eliminate finetuning the persona LLMs
+
 class PersonaPrompted:
 
     def __init__(self, client, persona_prompt, persona_dataset, num_icl_pairs=3):

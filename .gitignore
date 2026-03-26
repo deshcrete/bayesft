@@ -4,7 +4,7 @@ trainer_output/
 uniform_prior/
 refactored/api_key.txt
 refactored/together_api_key.txt
-
+checkpoints
 gitinit.sh
 
 datasetCreate/hf_api_key.txt

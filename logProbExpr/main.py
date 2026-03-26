@@ -1,5 +1,5 @@
 from dataset import DataSplitter
-from persona import PersonaLLM
+from persona import PersonaLLM, PretrainedPersonaLLM
 from posterior import Posterior
 from datasets import load_dataset, Dataset
 from collections import defaultdict
@@ -101,10 +101,21 @@ def train_and_save_models(args):
 
     # Train mixture model
     print("> Training Mixture Model")
-    mixture_data = load_from_disk("./data/mixture")
-    mixture = PersonaLLM(mixture_data, "pretrain", "./mixture/pretrain", args.model_name, True)
-    mixture.fine_tune()
-    mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
+
+    base_model = AutoModelForCausalLM.from_pretrained(
+            "./uniform_prior",
+            torch_dtype=torch.bfloat16,
+            device_map="auto"
+        )
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    mixture = PretrainedPersonaLLM(base_model, tokenizer)
+    mixture.gen_logprobs("./data/logprobs/pretrain", inference_data)
+
+
+    #mixture_data = load_from_disk("./data/mixture")
+    #mixture = PersonaLLM(mixture_data, "pretrain", "./mixture/pretrain", args.model_name, True)
+    #mixture.fine_tune()
+    #mixture.gen_logprobs(f"./data/logprobs/pretrain", inference_data)
 
     # Solve for posterior weights
     print("> Solving for Posterior Weights")
