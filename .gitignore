@@ -27,3 +27,4 @@ finetuned_model_merged
 finetuned_model_merged_large
 
 *.pyc
+__pycache__/

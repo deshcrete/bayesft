@@ -4,6 +4,7 @@ datasets
 accelerate
 hf_transfer
 scipy
+scikit-learn
 matplotlib
 openai
 huggingface_hub
