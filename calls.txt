@@ -1,9 +1,0 @@
-python3 main.py --mode train \
-  --skip-personas \
-  --logprob-dir /bayesft/checkpoints/ \
-  --mixture-mode pretrained \
-  --mixture-model-path ./uniform_prior \
-  --num-personas 6
-
-
-python3 logProbExprV2/main.py --mode train   --skip-personas   --mixture-mode pretrained   --mixture-model-path ./uniform_prior   --num-personas 6
