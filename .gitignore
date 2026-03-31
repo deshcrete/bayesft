@@ -1,29 +1,51 @@
-lora_weights/
-trainer_output/
+# Model checkpoints and weights (large)
+checkpoints/
 uniform_prior/
-refactored/api_key.txt
-refactored/together_api_key.txt
-checkpoints
-gitinit.sh
+gemma_prior/
+lora_weights/
+lora_weights_gpt2/
+shifted_model_*/
+finetuned_model*/
+persona_0_sft/
+trainer_output/
 
-datasetCreate/hf_api_key.txt
-datasetCreate/openai.txt
-datasetCreate/huggingface.txt
+# Data (large, regenerable)
+data/
+hypothesis_test/data/
+hypothesis_test/adapters/
+bayesian_test/skewed_data/
+bayesian_test/sft_logprobs/
 
-logProbExpr/api_key.txt
+# Egg info
+bayesft.egg-info/
 
-logProbExpr/hftoken.txt
-shifted_model_french_persona
-persona_0_sft
+# Secrets and API keys
+**/api_key.txt
+**/openai.txt
+**/huggingface.txt
+**/hf_api_key.txt
+**/hftoken.txt
+**/together_api_key.txt
+*.env
 
-results
-shifted_model_persona_0
-*/huggingface.txt
-*/openai.txt
-shifted_model_persona_0_v2
-finetuned_model
-finetuned_model_merged
-finetuned_model_merged_large
-
+# Python
 *.pyc
 __pycache__/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Legacy paths
+refactored/
+logProbExpr/
+datasetCreate/
+gitinit.sh
+results/
+
+# Misc large/generated
+download_model.py
+*.safetensors
+*.bin
+*.pt
+*.onnx

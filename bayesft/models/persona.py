@@ -14,7 +14,7 @@ from bayesft.utils.config import get_lora_targets
 class PersonaLLM:
     """Fine-tunable persona LLM backed by LoRA adapters."""
 
-    def __init__(self, persona_name, model_name, is_mixture=False, data_store_path=None):
+    def __init__(self, persona_name, model_name, is_mixture=False, data_store_path=None, adapter_dir="./lora_weights"):
         self.persona_name = persona_name
         self.model_name = model_name
         self.is_mixture = is_mixture
@@ -27,9 +27,9 @@ class PersonaLLM:
             self.data_store_path = "./data/mixture"
 
         if not is_mixture:
-            self.adapter_path = f"./lora_weights/models/persona_{persona_name}"
+            self.adapter_path = f"{adapter_dir}/models/persona_{persona_name}"
         else:
-            self.adapter_path = "./lora_weights/mixture/pretrain"
+            self.adapter_path = f"{adapter_dir}/mixture/pretrain"
 
     def fine_tune(self, dataset=None, **kwargs):
         """Fine-tune with LoRA. Uses stored dataset path if no dataset provided."""
@@ -87,8 +87,19 @@ class PretrainedPersonaLLM:
         self.model.eval()
 
     @classmethod
+    def from_local(cls, model_path, tokenizer_name=None):
+        """Load from a local path, using a separate model name for the tokenizer."""
+        tokenizer_name = tokenizer_name or model_path
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizer.pad_token = tokenizer.eos_token
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, torch_dtype=torch.bfloat16, device_map="auto",
+        )
+        return cls(model, tokenizer)
+
+    @classmethod
     def from_pretrained(cls, model_name_or_path, token=None):
-        """Load from HF Hub or local path."""
+        """Load from HF Hub or local path (tokenizer must be in same location)."""
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, token=token)
         tokenizer.pad_token = tokenizer.eos_token
         model = AutoModelForCausalLM.from_pretrained(

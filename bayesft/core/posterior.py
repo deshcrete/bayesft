@@ -18,6 +18,7 @@ class LogProbPosterior:
         self.log_prob_dir = log_prob_dir
         self.logprob_mat = None
         self.logprob_vec = None
+        self.base_logprobs = None
         self.weights = None
 
     def construct_logprob_matrix(self):
@@ -34,19 +35,36 @@ class LogProbPosterior:
         dataset = load_from_disk(path)
         self.logprob_vec = np.array(dataset["completion_logprob"]).reshape(-1)
 
-    def solve_for_weights(self, method="nnls"):
+    def construct_base_logprobs(self, path=None):
+        """Load base model logprobs into vector."""
+        path = path or f"{self.log_prob_dir}base"
+        dataset = load_from_disk(path)
+        self.base_logprobs = np.array(dataset["completion_logprob"]).reshape(-1)
+
+    def solve_for_weights(self, method="nnls", lam=0.1):
         """
         Solve for mixture weights.
 
         Args:
-            method: 'nnls' (non-negative least squares, fast) or 'slsqp' (original logaddexp method).
+            method: 'nnls', 'slsqp', 'standardized', 'standardized-reg',
+                    'delta', or 'delta-reg'.
+            lam: Regularization strength for 'standardized-reg' and 'delta-reg'
+                 (higher = more smoothing between correlated personas). Default 0.1.
         """
         if method == "nnls":
             self._solve_nnls()
         elif method == "slsqp":
             self._solve_slsqp()
+        elif method == "standardized":
+            self._solve_standardized()
+        elif method == "standardized-reg":
+            self._solve_standardized_reg(lam=lam)
+        elif method == "delta":
+            self._solve_delta()
+        elif method == "delta-reg":
+            self._solve_delta_reg(lam=lam)
         else:
-            raise ValueError(f"Unknown method: {method}. Use 'nnls' or 'slsqp'.")
+            raise ValueError(f"Unknown method: {method}.")
 
     def _solve_nnls(self):
         """Solve using non-negative least squares with sum-to-1 regularization."""
@@ -61,7 +79,7 @@ class LogProbPosterior:
         b = np.append(vec, lam)
 
         w, _ = nnls(A, b)
-        self.weights = w / w.sum() if w.sum() > 0 else w
+        self.weights = w
 
     def _solve_slsqp(self):
         """Solve using SLSQP with logaddexp (original method from logProbExpr)."""
@@ -93,6 +111,190 @@ class LogProbPosterior:
         )
 
         self.weights = np.exp(result.x)
+
+    def _standardize(self):
+        """Standardize each persona's logprob vector to zero mean, unit variance.
+
+        This removes absolute scale differences (which persona is "better overall")
+        and keeps only the per-example pattern of which examples each persona
+        finds relatively easy vs hard. The mixture vector is standardized the
+        same way (using its own mean and std).
+
+        Returns:
+            (mat_std, mix_std): standardized persona matrix and mixture vector.
+        """
+        mat = self.logprob_mat  # (n_personas, n_samples)
+        vec = self.logprob_vec  # (n_samples,)
+
+        mat_std = (mat - mat.mean(axis=1, keepdims=True)) / (mat.std(axis=1, keepdims=True) + 1e-10)
+        mix_std = (vec - vec.mean()) / (vec.std() + 1e-10)
+
+        return mat_std, mix_std
+
+    def _solve_standardized(self):
+        """Solve using standardized logprobs (linear, no regularization)."""
+        mat_std, mix_std = self._standardize()
+        n = mat_std.shape[0]
+
+        def objective(w):
+            return np.sum((w @ mat_std - mix_std) ** 2)
+
+        result = minimize(
+            objective,
+            np.ones(n) / n,
+            bounds=[(0, 1)] * n,
+            constraints={"type": "eq", "fun": lambda w: w.sum() - 1},
+            method="SLSQP",
+        )
+        self.weights = result.x
+
+    def _solve_standardized_reg(self, lam=0.1):
+        """Solve using standardized logprobs with similarity-aware regularization.
+
+        Adds a penalty that pushes correlated personas toward equal weights:
+
+            objective = ||A @ w - b||^2  +  lam * sum_{i,j} corr(i,j) * (w_i - w_j)^2
+
+        where corr(i,j) is the Pearson correlation between persona i and j's
+        standardized logprob vectors. This prevents the solver from arbitrarily
+        splitting weight between near-identical personas.
+
+        Args:
+            lam: Regularization strength. Higher values produce smoother weights
+                 across similar personas. Scaled by num_samples so the balance
+                 between data fit and regularization is stable across dataset sizes.
+        """
+        mat_std, mix_std = self._standardize()
+        n, m = mat_std.shape
+
+        # Correlation matrix on standardized logprobs
+        corr = np.corrcoef(mat_std)
+        # Zero out diagonal (no self-regularization)
+        np.fill_diagonal(corr, 0.0)
+        # Clip negative correlations (only penalize similar personas)
+        corr = np.clip(corr, 0.0, 1.0)
+
+        # Scale lambda by num_samples so regularization strength is
+        # independent of dataset size
+        lam_scaled = lam * m
+
+        def objective(w):
+            # Data fit term
+            data_fit = np.sum((w @ mat_std - mix_std) ** 2)
+
+            # Similarity regularization: penalize weight differences
+            # between correlated personas
+            reg = 0.0
+            for i in range(n):
+                for j in range(i + 1, n):
+                    reg += corr[i, j] * (w[i] - w[j]) ** 2
+
+            return data_fit + lam_scaled * reg
+
+        result = minimize(
+            objective,
+            np.ones(n) / n,
+            bounds=[(0, 1)] * n,
+            constraints={"type": "eq", "fun": lambda w: w.sum() - 1},
+            method="SLSQP",
+        )
+        self.weights = result.x
+
+    def _compute_deltas(self):
+        """Compute LoRA deltas: δ_i(x) = log P_i(x) - log P_base(x).
+
+        From the linearization of the mixture model:
+
+            P_mix(x) = P_base(x) · Σ w_i exp(δ_i(x))
+                     ≈ P_base(x) · (1 + Σ w_i δ_i(x))     [small δ]
+
+        So: δ_mix(x) ≈ Σ w_i δ_i(x)
+
+        This is exact in the limit of small LoRA perturbations and
+        avoids the approximation error of standardization.
+
+        Returns:
+            (delta_mat, delta_mix): persona delta matrix (n, m) and
+            mixture delta vector (m,).
+        """
+        if self.base_logprobs is None:
+            raise ValueError(
+                "Base logprobs not loaded. Call construct_base_logprobs() first, "
+                "or use 'standardized'/'standardized-reg' methods instead."
+            )
+        delta_mat = self.logprob_mat - self.base_logprobs[np.newaxis, :]
+        delta_mix = self.logprob_vec - self.base_logprobs
+        return delta_mat, delta_mix
+
+    def _scale_deltas(self, delta_mat, delta_mix):
+        """Scale deltas so objective and sum-to-1 constraint are comparable.
+
+        The minimizer of ||w @ (δ/s) - (δ_mix/s)||² is the same as for the
+        unscaled problem (objective just divides by s²), but SLSQP enforces
+        the equality constraint more tightly when the scales match.
+        """
+        scale = np.std(delta_mat) + 1e-10
+        return delta_mat / scale, delta_mix / scale
+
+    def _solve_delta(self):
+        """Solve using explicit LoRA deltas (no regularization).
+
+        Solves: min ||Σ w_i δ_i(x) - δ_mix(x)||²
+        subject to: w_i ≥ 0, Σ w_i = 1.
+        """
+        delta_mat, delta_mix = self._compute_deltas()
+        delta_mat, delta_mix = self._scale_deltas(delta_mat, delta_mix)
+        n = delta_mat.shape[0]
+
+        def objective(w):
+            return np.sum((w @ delta_mat - delta_mix) ** 2)
+
+        result = minimize(
+            objective,
+            np.ones(n) / n,
+            bounds=[(0, 1)] * n,
+            constraints={"type": "eq", "fun": lambda w: w.sum() - 1},
+            method="SLSQP",
+        )
+        self.weights = result.x
+
+    def _solve_delta_reg(self, lam=0.1):
+        """Solve using explicit LoRA deltas with correlation-aware regularization.
+
+        Adds a penalty that pushes correlated personas toward equal weights:
+
+            objective = ||A @ w - b||²  +  lam * m * Σ_{i<j} corr(i,j) * (w_i - w_j)²
+
+        where A = delta_mat, b = delta_mix, and corr is computed on deltas.
+        """
+        delta_mat, delta_mix = self._compute_deltas()
+        corr = np.corrcoef(delta_mat)
+        delta_mat, delta_mix = self._scale_deltas(delta_mat, delta_mix)
+        n, m = delta_mat.shape
+
+        np.fill_diagonal(corr, 0.0)
+        corr = np.clip(corr, 0.0, 1.0)
+
+        lam_scaled = lam * m
+
+        def objective(w):
+            data_fit = np.sum((w @ delta_mat - delta_mix) ** 2)
+
+            reg = 0.0
+            for i in range(n):
+                for j in range(i + 1, n):
+                    reg += corr[i, j] * (w[i] - w[j]) ** 2
+
+            return data_fit + lam_scaled * reg
+
+        result = minimize(
+            objective,
+            np.ones(n) / n,
+            bounds=[(0, 1)] * n,
+            constraints={"type": "eq", "fun": lambda w: w.sum() - 1},
+            method="SLSQP",
+        )
+        self.weights = result.x
 
     def save_weights(self, output_path):
         """Save posterior weights to JSON."""

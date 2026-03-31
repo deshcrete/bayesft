@@ -1,0 +1,13 @@
+{
+  "true_weights": [
+    0.5,
+    0.1,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+  ],
+  "target_persona": 0,
+  "target_weight": 0.5,
+  "finetune_samples": 3000
+}
